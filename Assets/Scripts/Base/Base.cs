@@ -1,117 +1,133 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
-[RequireComponent(typeof(UnitSpawner))]
+[RequireComponent(typeof(ResourceCounter))]
+[RequireComponent(typeof(ScanResourcesStorage))]
+[RequireComponent(typeof(UnitHandler))]
+[RequireComponent(typeof(FlagSetter))]
 public class Base : MonoBehaviour
 {
-    [SerializeField] private int unitCount = 3;
-    [SerializeField] private float _scanRadius = 5;
-    [SerializeField] private LayerMask _resourceMask;
-    [SerializeField] private float _scanDelay = 2f;
+    private const string Edge = "Edge";
+    private enum BaseState
+    {
+        CreatingUnits,
+        CreatingBases
+    }
 
-    private UnitSpawner _spawner;
-    private List<Unit> _units = new List<Unit>();
-    private Coroutine _coroutine;
-    
-    private int _resourceCount = 0;
-    private bool _isActive = true;
+    [SerializeField] private int _unitPrice = 3;
+    [SerializeField] private int _basePrice = 5;
+
+    private ResourceCounter _counter;    
+    private UnitHandler _handler;
+    private FlagSetter _flagSetter;
+
+    private bool _isSelected;
+    private BaseState _state = BaseState.CreatingUnits;
 
     private void Awake()
     {
-        _spawner = GetComponent<UnitSpawner>();
+        _counter = GetComponent<ResourceCounter>();        
+        _handler = GetComponent<UnitHandler>();
+        _flagSetter = GetComponent<FlagSetter>();            
     }
 
-    private void OnDisable()
+    private void OnEnable()
     {
-        if (_coroutine != null)
-            StopCoroutine(_coroutine);
+        _handler.BaseBuilt += OnBaseBuilt;
+    }
+
+    public void Initialize(int unitCount)
+    {
+        if (unitCount > 0)
+        {
+            _handler.SpawnUnits(unitCount);
+        }
+    }
+
+    public void Initialize(Unit unit)
+    {
+        _state = BaseState.CreatingUnits;
+        _handler.AddToBase(unit);
+        unit.SetBase(this);
+    }
+
+    public void ResourceTaken(Resource resource, Unit unit)
+    {
+        _counter.IncreaseResources();
+        ResourceStorage.Instance.RemoveBusyResource(resource);
+
+        unit.MoveToPosition(_handler.GetNearBasePosition());
         
-        _isActive = false;
-    }
-
-    private void Start()
-    {
-        for (int i = 0; i < unitCount; i++)
+        if (_state == BaseState.CreatingUnits && _counter.Count == _unitPrice)
         {
-            Unit unit = _spawner.SpawnUnit(this);
-            unit.ResourceBrought += IncreaseResources;
-
-            if (unit != null)
-            { 
-                _units.Add(unit);
-            }
+            _handler.SpawnUnit();
+            _counter.DecreaseResources(_unitPrice);
         }
 
-        _coroutine = StartCoroutine(ScanResources());
-    }
-
-    private IEnumerator ScanResources()
-    {
-        var wait = new WaitForSeconds(_scanDelay);
-
-        while (_isActive)
+        if (_state == BaseState.CreatingBases && _counter.Count == _basePrice)
         {
-            if (!HasFreeUnits())
-            {
-                yield return wait;
-            }
-                        
-            Collider[] colliders = Physics.OverlapSphere(transform.position, _scanRadius, _resourceMask);
-
-            foreach (var collider in colliders)
-            {
-                Resource resource = collider.GetComponent<Resource>();
-
-                if (resource.CanCollect)
-                {
-                    Unit unit = GetFreeUnit();
-
-                    if (unit)
-                    {
-                        unit.GetResource(resource.gameObject.transform.position);
-                        resource.setCanCollect(false);
-                    }
-                }
-
-                if (!HasFreeUnits())
-                {
-                    break;
-                }
-            }
-
-            yield return wait;
+            _state = BaseState.CreatingUnits;
+            _handler.CreateBase(_flagSetter.GetPosition());
+            _counter.DecreaseResources(_basePrice);
+            _flagSetter.ChangePositionState(false);
         }
     }
 
-    private Unit GetFreeUnit()
+    public void SetActiveSelection()
     {
-        foreach(var unit in _units)
+        if (_isSelected == false)
         {
-            if (unit.IsFree)
+            Transform selection = transform.Find(Edge);
+
+            if (selection != null) 
             {
-                return unit;
+                _flagSetter.ChangeVisibleState(true);
+                selection.gameObject.SetActive(true);                
+                _isSelected = true;
             }
         }
-
-        return null;
     }
 
-    private bool HasFreeUnits()
+    public void UnsetActiveSelection()
     {
-        foreach (var unit in _units)
+        if (_isSelected)
         {
-            if (unit.IsFree)
+            Transform selection = transform.Find(Edge);
+
+            if (selection != null)
             {
-                return true;
+                _flagSetter.ChangeVisibleState(false);
+                selection.gameObject.SetActive(false);                
+                _isSelected = false;
             }
         }
-
-        return false;
     }
 
-    private void IncreaseResources()
+    public void SetFlag(Vector3 target)
     {
-        _resourceCount++;
+        if (_isSelected && _handler.GetCount() > 1)
+        {
+            bool isFlagSet = _flagSetter.Set(target);
+
+            if (isFlagSet)
+            {
+                _state = BaseState.CreatingBases;
+            }
+        }
+    }
+
+    public void RemoveUnit(Unit unit)
+    {
+        _handler.RemoveUnit(unit);
+    }
+
+    public ResourceCounter GetCounter()
+    {
+        return _counter;
+    }
+
+    private void OnBaseBuilt()
+    {
+        _flagSetter.Unset();
+        _flagSetter.ChangePositionState(true);
     }
 }

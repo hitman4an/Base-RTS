@@ -6,7 +6,7 @@ public class CameraZoomer : MonoBehaviour
     [SerializeField] private float _smoothTime = 0.001f;
 
     private float _minZoom = 5f;
-    private float _maxZoom = 20f;
+    private float _maxZoom = 50f;
     private Vector3 _velocity = Vector3.zero;
 
     public void Zoom(float scrollValue)

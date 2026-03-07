@@ -5,23 +5,23 @@ using System.Collections;
 public class ResourceSpawner : MonoBehaviour
 {
     [SerializeField] private float _spawnSpeed = 5f;
-    [SerializeField] private int _spawnCount = 50;
+    [SerializeField] private int _spawnCount = 5;
     [SerializeField] private Resource _resource;
 
     private Coroutine _coroutine;
-    private CoordinatesGenerator _generator;
+    private CoordinatesGenerator _generator;    
 
     private float _minX = 1;
-    private float _maxX = 999;
+    private float _maxX = 295;
     private float _minZ = 1;
-    private float _maxZ = 999;
+    private float _maxZ = 295;
 
     private float _radius = 5f;
     private bool _isActive = true;
 
     private void Awake()
     {
-        _generator = GetComponent<CoordinatesGenerator>();
+        _generator = GetComponent<CoordinatesGenerator>();        
     }
 
     private void Start()
@@ -60,7 +60,9 @@ public class ResourceSpawner : MonoBehaviour
 
         if (spawnPosition != Vector3.zero)
         {
-            Instantiate(_resource, spawnPosition, Quaternion.identity);
+            Resource resource = Instantiate(_resource, spawnPosition, Quaternion.identity);
+
+            ResourceStorage.Instance.AddFreeResource(resource);
         }
     }
 }

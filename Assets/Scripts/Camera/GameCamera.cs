@@ -3,20 +3,19 @@ using UnityEngine;
 [RequireComponent(typeof(CameraMover))]
 [RequireComponent(typeof(CameraZoomer))]
 [RequireComponent(typeof(CameraRotator))]
-[RequireComponent(typeof(PlayerInput))]
 public class GameCamera : MonoBehaviour
 {
+    [SerializeField] private PlayerInput _playerInput;
+
     private CameraMover _mover;
     private CameraZoomer _zoomer;
     private CameraRotator _rotator;
-    private PlayerInput _playerInput;
-        
+            
     private void Awake()
     {
         _mover = GetComponent<CameraMover>();
         _zoomer = GetComponent<CameraZoomer>();
-        _rotator = GetComponent<CameraRotator>();
-        _playerInput = GetComponent<PlayerInput>();
+        _rotator = GetComponent<CameraRotator>();        
     }
 
     private void OnEnable()
